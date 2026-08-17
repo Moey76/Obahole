@@ -1,1 +1,1486 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGen Studio — Shopee Image &amp; Prompt Generator</title>
 
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'sans-serif'],
+          display: ['Space Grotesk', 'sans-serif'],
+        },
+        colors: {
+          brand: {
+            50: '#f0f4f8', 100: '#d9e2ec', 200: '#bcccdc', 300: '#9fb3c8',
+            500: '#334e68', 600: '#243b53', 700: '#1c3049', 900: '#102a43',
+          },
+          accent: { DEFAULT: '#e63946', 600: '#d02836' },
+          denim: { 50: '#eef4fb', 500: '#3d6fa8' },
+        },
+      },
+    },
+  }
+</script>
+
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #f4f6f9; }
+  h1, h2, h3, .font-display { font-family: 'Space Grotesk', sans-serif; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .prompt-box { background-color: #1e293b; color: #e2e8f0; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Signature: a stitched-seam divider, nodding to the denim/apparel subject */
+  .stitch-underline { border-bottom: 2px dashed rgba(230, 57, 70, 0.55); padding-bottom: 10px; }
+  .stitch-active { border-left: 3px dashed #e63946; }
+
+  .nav-item { transition: background-color .15s ease, color .15s ease; }
+  .view-fade { animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px);} to { opacity: 1; transform: translateY(0);} }
+
+  @keyframes slideUp { from { transform: translateY(120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .toast-animate { animation: slideUp .3s ease-out forwards; }
+
+  .spinner { border: 3px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%; width: 22px; height: 22px; animation: spin .7s linear infinite; }
+  .spinner-dark { border: 3px solid rgba(16,42,67,.15); border-top-color: #102a43; border-radius: 50%; width: 22px; height: 22px; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .dropzone { border: 2px dashed #cbd5e1; transition: border-color .15s ease, background-color .15s ease; }
+  .dropzone.drag { border-color: #e63946; background-color: #fef2f2; }
+
+  .status-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+
+  [data-view] { display: none; }
+  [data-view].active { display: block; }
+
+  .img-tile { aspect-ratio: 3 / 4; background: #eef2f6; }
+
+  @media (max-width: 767px) {
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+  }
+</style>
+</head>
+<body class="text-brand-900 antialiased">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-72 bg-brand-900 text-white flex flex-col transition-transform duration-200 ease-out">
+    <div class="h-16 flex items-center gap-2 px-5 border-b border-white/10 flex-shrink-0">
+      <i class="fa-solid fa-wand-magic-sparkles text-accent text-lg"></i>
+      <span class="font-display font-bold text-lg tracking-tight">ProGen Studio</span>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <p class="px-3 text-[11px] uppercase tracking-wider text-brand-200 font-semibold mb-2">Menu</p>
+
+      <button data-menu="setup" class="nav-item w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium">
+        <span class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-display">1</span>
+        <span class="flex-1">Setup Produk</span>
+        <i class="fa-solid fa-sliders text-brand-200 text-xs"></i>
+      </button>
+
+      <button data-menu="generate" class="nav-item w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium">
+        <span class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-display">2</span>
+        <span class="flex-1">Generate Gambar</span>
+        <span id="navGenerateBadge" class="hidden text-[10px] bg-accent px-1.5 py-0.5 rounded-full font-semibold"></span>
+      </button>
+
+      <button data-menu="settings" class="nav-item w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium">
+        <span class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-display">3</span>
+        <span class="flex-1">Pengaturan</span>
+        <span id="navSettingsDot" class="status-dot bg-amber-400"></span>
+      </button>
+    </nav>
+
+    <div class="px-4 py-4 border-t border-white/10 text-xs text-brand-200 space-y-2">
+      <div class="flex items-center gap-2">
+        <span id="providerStatusDot" class="status-dot bg-amber-400"></span>
+        <span id="providerStatusText">Memuat status provider…</span>
+      </div>
+      <p class="text-[11px] leading-relaxed text-brand-300">Data produk &amp; riwayat gambar tersimpan lokal di browser ini saja.</p>
+    </div>
+  </aside>
+
+  <!-- Mobile overlay -->
+  <div id="sidebarOverlay" class="hidden fixed inset-0 bg-black/40 z-30 md:hidden"></div>
+
+  <!-- ============ MAIN ============ -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+    <!-- Topbar (mobile) -->
+    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:hidden flex-shrink-0">
+      <button id="hamburgerBtn" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <span class="font-display font-bold">ProGen Studio</span>
+      <span class="w-9"></span>
+    </header>
+
+    <main class="flex-1 overflow-y-auto">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- ============ VIEW 1: SETUP PRODUK ============ -->
+        <section data-view="setup" class="active view-fade">
+          <div class="mb-6 stitch-underline">
+            <h1 class="text-2xl font-bold">Setup Produk</h1>
+            <p class="text-gray-500 text-sm mt-1">Lengkapi detail produk, lalu buat 9 prompt siap pakai untuk etalase Shopee-mu.</p>
+          </div>
+
+          <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Form -->
+            <div class="w-full lg:w-1/3 flex-shrink-0">
+              <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-8 space-y-5">
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label>
+                  <input type="text" id="productName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="Contoh: Celana Jeans Pria Slim Fit">
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Gaya / Vibe Brand</label>
+                  <input type="text" id="brandStyle" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="Contoh: Premium, minimalist, clean">
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Warna Produk Dominan</label>
+                  <input type="text" id="productColor" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="Contoh: Dark blue denim">
+                </div>
+
+                <!-- Foto Produk -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Foto Produk (opsional)</label>
+                  <p class="text-xs text-gray-400 mb-2">Dipakai sebagai referensi visual &amp; disimpan di perangkatmu.</p>
+                  <div id="photoDropzone" class="dropzone rounded-xl p-3 flex items-center gap-3 cursor-pointer">
+                    <div id="photoPreviewWrap" class="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <i id="photoPlaceholderIcon" class="fa-solid fa-image text-gray-300 text-xl"></i>
+                      <img id="photoPreviewImg" class="hidden w-full h-full object-cover" alt="Pratinjau foto produk">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p id="photoFileLabel" class="text-sm text-gray-600 truncate">Klik atau seret foto ke sini</p>
+                      <p class="text-xs text-gray-400">PNG/JPG, maks. 5MB</p>
+                    </div>
+                    <button type="button" id="photoRemoveBtn" class="hidden w-8 h-8 flex-shrink-0 rounded-full hover:bg-red-50 text-gray-400 hover:text-accent flex items-center justify-center">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                  <input type="file" id="photoInput" accept="image/*" class="hidden">
+                </div>
+
+                <!-- Logo -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Logo Brand (opsional)</label>
+                  <p class="text-xs text-gray-400 mb-2">Bisa dipakai sebagai watermark otomatis di Menu 2.</p>
+                  <div id="logoDropzone" class="dropzone rounded-xl p-3 flex items-center gap-3 cursor-pointer">
+                    <div id="logoPreviewWrap" class="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <i id="logoPlaceholderIcon" class="fa-solid fa-shapes text-gray-300 text-xl"></i>
+                      <img id="logoPreviewImg" class="hidden w-full h-full object-contain" alt="Pratinjau logo brand">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p id="logoFileLabel" class="text-sm text-gray-600 truncate">Klik atau seret logo ke sini</p>
+                      <p class="text-xs text-gray-400">PNG transparan disarankan</p>
+                    </div>
+                    <button type="button" id="logoRemoveBtn" class="hidden w-8 h-8 flex-shrink-0 rounded-full hover:bg-red-50 text-gray-400 hover:text-accent flex items-center justify-center">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                  <input type="file" id="logoInput" accept="image/*" class="hidden">
+                </div>
+
+                <button id="generateSetupBtn" class="w-full bg-brand-900 hover:bg-brand-600 text-white font-medium py-3 rounded-lg transition-colors flex justify-center items-center gap-2 shadow-md">
+                  <i class="fa-solid fa-bolt"></i> Simpan &amp; Buat Prompt
+                </button>
+
+                <div class="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  <p class="font-semibold mb-1"><i class="fa-solid fa-circle-info"></i> Info Shopee</p>
+                  <ul class="list-disc pl-4 space-y-1">
+                    <li>Maksimal 9 media (foto + video)</li>
+                    <li>Rasio foto rekomendasi: 3:4</li>
+                    <li>Resolusi video minimal 540×540px, durasi minimal 8 detik</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prompt results -->
+            <div class="w-full lg:w-2/3">
+              <div id="setupWelcome" class="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-2xl border border-dashed border-gray-300">
+                <i class="fa-solid fa-layer-group text-4xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-700">Siap membuat visual premium?</h3>
+                <p class="text-gray-500 mt-2 max-w-md">Isi detail produk di panel kiri, lalu klik "Simpan &amp; Buat Prompt" untuk mendapatkan 9 prompt siap pakai — dan lanjutkan ke Menu 2 untuk membuat gambarnya otomatis.</p>
+              </div>
+              <div id="promptResults" class="hidden grid grid-cols-1 xl:grid-cols-2 gap-5 pb-16"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ VIEW 2: GENERATE GAMBAR ============ -->
+        <section data-view="generate" class="view-fade">
+          <div class="mb-6 stitch-underline flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold">Generate Gambar</h1>
+              <p class="text-gray-500 text-sm mt-1">Buat gambar langsung dari prompt, tersambung ke provider AI pilihanmu.</p>
+            </div>
+            <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-full pl-3 pr-1 py-1 text-xs">
+              <span id="genProviderDot" class="status-dot bg-amber-400"></span>
+              <span id="genProviderLabel" class="font-medium text-gray-700">Memuat…</span>
+              <button data-menu="settings" class="nav-item ml-1 px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium">Ubah</button>
+            </div>
+          </div>
+
+          <!-- No product yet -->
+          <div id="generateEmptyState" class="hidden flex flex-col items-center justify-center text-center p-12 bg-white rounded-2xl border border-dashed border-gray-300">
+            <i class="fa-solid fa-box-open text-4xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-700">Belum ada produk</h3>
+            <p class="text-gray-500 mt-2 max-w-md">Lengkapi Setup Produk terlebih dahulu supaya prompt-nya bisa dibuatkan gambar di sini.</p>
+            <button data-menu="setup" class="nav-item mt-4 px-5 py-2 bg-brand-900 text-white rounded-lg text-sm font-medium">Ke Setup Produk</button>
+          </div>
+
+          <div id="generateContent" class="hidden">
+            <!-- Sub tabs -->
+            <div class="flex items-center gap-1 mb-5 bg-white border border-gray-200 rounded-full p-1 w-fit">
+              <button id="subtabResults" class="px-4 py-1.5 rounded-full text-sm font-medium bg-brand-900 text-white">Hasil</button>
+              <button id="subtabHistory" class="px-4 py-1.5 rounded-full text-sm font-medium text-gray-600">Riwayat</button>
+            </div>
+
+            <!-- Results panel -->
+            <div id="resultsPanel">
+              <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <label class="flex items-center gap-2 text-sm text-gray-600">
+                  <input type="checkbox" id="watermarkToggle" class="rounded border-gray-300 text-accent focus:ring-accent">
+                  Tambahkan watermark logo pada hasil
+                </label>
+                <button id="generateAllBtn" class="px-4 py-2 bg-accent hover:bg-accent-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Semua Gambar
+                </button>
+              </div>
+              <div id="generateProgress" class="hidden mb-5 bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-600 flex items-center gap-3">
+                <div class="spinner-dark"></div>
+                <span id="generateProgressText">Memproses…</span>
+              </div>
+              <div id="generateSlots" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pb-16"></div>
+            </div>
+
+            <!-- History panel -->
+            <div id="historyPanel" class="hidden">
+              <div class="flex items-center justify-between mb-5">
+                <p class="text-sm text-gray-500">Semua gambar yang pernah kamu buat, tersimpan di browser ini.</p>
+                <button id="clearHistoryBtn" class="text-xs text-gray-500 hover:text-accent flex items-center gap-1">
+                  <i class="fa-regular fa-trash-can"></i> Hapus Semua Riwayat
+                </button>
+              </div>
+              <div id="historyEmpty" class="hidden text-center p-12 bg-white rounded-2xl border border-dashed border-gray-300">
+                <i class="fa-solid fa-clock-rotate-left text-4xl text-gray-300 mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-700">Belum ada riwayat</h3>
+                <p class="text-gray-500 mt-1 text-sm">Gambar yang kamu generate akan muncul di sini.</p>
+              </div>
+              <div id="historyGrid" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 pb-16"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ VIEW 3: PENGATURAN ============ -->
+        <section data-view="settings" class="view-fade">
+          <div class="mb-6 stitch-underline">
+            <h1 class="text-2xl font-bold">Pengaturan</h1>
+            <p class="text-gray-500 text-sm mt-1">Pasang API key provider AI image generation untuk dipakai di Menu 2.</p>
+          </div>
+
+          <div class="max-w-2xl space-y-6 pb-16">
+
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Provider Generate Gambar</label>
+              <select id="providerSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none mb-1">
+                <option value="pollinations">Pollinations.ai — Gratis, tanpa API key</option>
+                <option value="openai">OpenAI — GPT Image (dall-e / gpt-image)</option>
+                <option value="stability">Stability AI — Stable Diffusion / Stable Image</option>
+                <option value="custom">Endpoint Kustom (lanjutan)</option>
+              </select>
+              <p class="text-xs text-gray-400">Semua provider menghasilkan gambar untuk prompt yang sama — pilih sesuai API key yang kamu punya.</p>
+            </div>
+
+            <!-- OpenAI fields -->
+            <div id="fieldsOpenai" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4 hidden">
+              <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-key text-brand-500"></i> OpenAI</h3>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                <div class="relative">
+                  <input type="password" id="openaiKey" class="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="sk-...">
+                  <button type="button" class="toggle-visibility absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" data-target="openaiKey"><i class="fa-regular fa-eye"></i></button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                <input type="text" id="openaiModel" list="openaiModelList" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="gpt-image-1">
+                <datalist id="openaiModelList">
+                  <option value="gpt-image-1">
+                  <option value="gpt-image-1-mini">
+                  <option value="dall-e-2">
+                </datalist>
+                <p class="text-xs text-gray-400 mt-1">Catatan: DALL·E 3 sudah dipensiunkan OpenAI per Maret 2026 — gunakan model seri gpt-image.</p>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran</label>
+                  <select id="openaiSize" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none">
+                    <option value="1024x1536">1024×1536 (potret)</option>
+                    <option value="1024x1024">1024×1024 (persegi)</option>
+                    <option value="1536x1024">1536×1024 (lanskap)</option>
+                    <option value="auto">Auto</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Kualitas</label>
+                  <select id="openaiQuality" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none">
+                    <option value="auto">Auto</option>
+                    <option value="high">Tinggi</option>
+                    <option value="medium">Sedang</option>
+                    <option value="low">Rendah</option>
+                  </select>
+                </div>
+              </div>
+              <p class="text-xs text-gray-400">Akun baru mungkin perlu menyelesaikan verifikasi organisasi di dashboard OpenAI sebelum bisa memakai model gpt-image.</p>
+            </div>
+
+            <!-- Stability fields -->
+            <div id="fieldsStability" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4 hidden">
+              <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-key text-brand-500"></i> Stability AI</h3>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                <div class="relative">
+                  <input type="password" id="stabilityKey" class="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="sk-...">
+                  <button type="button" class="toggle-visibility absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" data-target="stabilityKey"><i class="fa-regular fa-eye"></i></button>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <select id="stabilityEndpoint" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none">
+                    <option value="core">Stable Image Core</option>
+                    <option value="ultra">Stable Image Ultra</option>
+                    <option value="sd3">Stable Diffusion 3</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Rasio</label>
+                  <select id="stabilityAspect" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none">
+                    <option value="4:5">4:5 (mendekati 3:4)</option>
+                    <option value="2:3">2:3</option>
+                    <option value="1:1">1:1</option>
+                    <option value="5:4">5:4</option>
+                    <option value="3:2">3:2</option>
+                    <option value="9:16">9:16</option>
+                  </select>
+                </div>
+              </div>
+              <p class="text-xs text-gray-400">Stability API belum punya rasio 3:4 persis — 4:5 adalah pilihan potret terdekat.</p>
+            </div>
+
+            <!-- Pollinations info -->
+            <div id="fieldsPollinations" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3 hidden">
+              <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-seedling text-brand-500"></i> Pollinations.ai</h3>
+              <p class="text-sm text-gray-500">Provider gratis dan tanpa API key — cocok untuk mencoba alur kerja sebelum memasang key berbayar. Kualitas &amp; konsistensi hasil lebih terbatas dibanding OpenAI/Stability.</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Lebar (px)</label>
+                  <input type="number" id="pollinationsWidth" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none" value="896">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Tinggi (px)</label>
+                  <input type="number" id="pollinationsHeight" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none" value="1152">
+                </div>
+              </div>
+            </div>
+
+            <!-- Custom endpoint fields -->
+            <div id="fieldsCustom" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4 hidden">
+              <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-plug text-brand-500"></i> Endpoint Kustom</h3>
+              <p class="text-xs text-gray-400">Untuk platform AI image generate lain (Replicate, Leonardo, server sendiri, dll). Endpoint menerima POST JSON dengan placeholder <code>{{prompt}}</code>.</p>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">URL Endpoint</label>
+                <input type="text" id="customUrl" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none" placeholder="https://api.contoh.com/v1/generate">
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Header Auth</label>
+                  <input type="text" id="customAuthHeader" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none" placeholder="Authorization">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Prefix Header</label>
+                  <input type="text" id="customAuthPrefix" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none" placeholder="Bearer ">
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                <div class="relative">
+                  <input type="password" id="customKey" class="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg outline-none" placeholder="API key">
+                  <button type="button" class="toggle-visibility absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" data-target="customKey"><i class="fa-regular fa-eye"></i></button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Template Body (JSON)</label>
+                <textarea id="customBody" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none font-mono text-xs">{"prompt": "{{prompt}}"}</textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Path Gambar di Respons</label>
+                <input type="text" id="customResponsePath" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none" placeholder="data.0.url">
+                <p class="text-xs text-gray-400 mt-1">Contoh: jika respons <code>{"data":[{"url":"..."}]}</code>, isi <code>data.0.url</code>.</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <button id="saveSettingsBtn" class="px-5 py-2.5 bg-brand-900 hover:bg-brand-600 text-white rounded-lg text-sm font-medium flex items-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan
+              </button>
+              <button id="testConnectionBtn" class="px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium flex items-center gap-2">
+                <i class="fa-solid fa-plug-circle-check"></i> Uji Koneksi
+              </button>
+              <span id="testConnectionResult" class="text-sm self-center"></span>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-xs leading-relaxed">
+              <p class="font-semibold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Tentang keamanan API key</p>
+              <p>API key disimpan hanya di browser ini (local storage) dan dikirim langsung dari browser ke API provider. Siapa pun yang memakai perangkat/browser ini bisa mengaksesnya. Jangan pakai pengaturan ini untuk website publik multi-pengguna — untuk produksi, sambungkan lewat backend/proxy milikmu sendiri agar key tidak terekspos di sisi klien.</p>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h3 class="font-semibold text-sm mb-1 text-gray-700">Zona Lanjutan</h3>
+              <p class="text-xs text-gray-400 mb-3">Menghapus data akan menghilangkan produk, foto/logo, pengaturan, dan riwayat gambar dari browser ini.</p>
+              <button id="resetAllBtn" class="px-4 py-2 bg-white border border-red-200 text-accent hover:bg-red-50 rounded-lg text-sm font-medium flex items-center gap-2">
+                <i class="fa-regular fa-trash-can"></i> Hapus Semua Data Lokal
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-5 py-3 rounded-full shadow-2xl hidden z-50 items-center gap-2 max-w-[90vw]">
+  <i id="toastIcon" class="fa-solid fa-circle-check text-green-400"></i>
+  <span id="toastMessage" class="text-sm">Berhasil!</span>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
+  <button id="lightboxClose" class="absolute top-5 right-5 text-white/80 hover:text-white text-2xl"><i class="fa-solid fa-xmark"></i></button>
+  <img id="lightboxImg" class="max-h-[85vh] max-w-full rounded-lg shadow-2xl" alt="Pratinjau gambar">
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================
+     UTILITIES
+  ========================================================= */
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replaceAll('&', '&amp;').replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+  }
+
+  function slugify(str) {
+    return String(str || 'produk').toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'produk';
+  }
+
+  function blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function fileToDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function resolvePath(obj, path) {
+    return String(path || '').split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+  }
+
+  function showToast(message, type) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toastIcon');
+    document.getElementById('toastMessage').textContent = message;
+    icon.className = type === 'error'
+      ? 'fa-solid fa-circle-exclamation text-red-400'
+      : 'fa-solid fa-circle-check text-green-400';
+    toast.classList.remove('hidden');
+    toast.classList.add('flex', 'toast-animate');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => {
+      toast.classList.add('hidden');
+      toast.classList.remove('flex', 'toast-animate');
+    }, 3200);
+  }
+
+  function openLightbox(src) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightbox').classList.remove('hidden');
+    document.getElementById('lightbox').classList.add('flex');
+  }
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.add('hidden');
+    document.getElementById('lightbox').classList.remove('flex');
+  }
+
+  function downloadDataUrl(dataUrl, filename) {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function formatDate(ts) {
+    try {
+      return new Date(ts).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (e) { return ''; }
+  }
+
+  /* =========================================================
+     INDEXEDDB (foto/logo produk + riwayat gambar)
+  ========================================================= */
+  const DB_NAME = 'progenStudioDB';
+  const DB_VERSION = 1;
+  let dbPromise = null;
+
+  function openDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets');
+        if (!db.objectStoreNames.contains('history')) {
+          const store = db.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
+          store.createIndex('createdAt', 'createdAt');
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+    return dbPromise;
+  }
+
+  async function idbSetAsset(key, value) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('assets', 'readwrite');
+      tx.objectStore('assets').put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbGetAsset(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('assets', 'readonly');
+      const req = tx.objectStore('assets').get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbDeleteAsset(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('assets', 'readwrite');
+      tx.objectStore('assets').delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbAddHistory(entry) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('history', 'readwrite');
+      const req = tx.objectStore('history').add(entry);
+      req.onsuccess = () => resolve(req.result);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbDeleteHistory(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('history', 'readwrite');
+      tx.objectStore('history').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbGetAllHistory() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('history', 'readonly');
+      const req = tx.objectStore('history').getAll();
+      req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.createdAt - a.createdAt));
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbClearHistory() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('history', 'readwrite');
+      tx.objectStore('history').clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbClearAssets() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('assets', 'readwrite');
+      tx.objectStore('assets').clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  function productKey(product) {
+    if (!product) return '';
+    return [product.name, product.style, product.color].join('|');
+  }
+  async function saveLastResult(product, slotId, image) {
+    const store = (await idbGetAsset('lastResults')) || { key: '', results: {} };
+    const key = productKey(product);
+    if (store.key !== key) { store.key = key; store.results = {}; }
+    store.results[slotId] = image;
+    await idbSetAsset('lastResults', store);
+  }
+  async function loadLastResultsForProduct(product) {
+    const store = await idbGetAsset('lastResults');
+    if (!store || store.key !== productKey(product)) return {};
+    return store.results || {};
+  }
+
+  /* =========================================================
+     LOCAL STORAGE (pengaturan + teks produk)
+  ========================================================= */
+  const LS_SETTINGS = 'progen_settings_v1';
+  const LS_PRODUCT = 'progen_product_v1';
+
+  function defaultSettings() {
+    return {
+      provider: 'pollinations',
+      watermark: false,
+      openai: { apiKey: '', model: 'gpt-image-1', size: '1024x1536', quality: 'auto' },
+      stability: { apiKey: '', endpoint: 'core', aspectRatio: '4:5' },
+      pollinations: { width: 896, height: 1152 },
+      custom: { url: '', authHeader: 'Authorization', authPrefix: 'Bearer ', apiKey: '', bodyTemplate: '{"prompt": "{{prompt}}"}', responsePath: 'data.0.url' },
+    };
+  }
+  function loadSettings() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_SETTINGS));
+      return raw ? Object.assign(defaultSettings(), raw) : defaultSettings();
+    } catch (e) { return defaultSettings(); }
+  }
+  function persistSettings(s) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s)); }
+
+  function loadProduct() {
+    try { return JSON.parse(localStorage.getItem(LS_PRODUCT)); } catch (e) { return null; }
+  }
+  function persistProduct(p) { localStorage.setItem(LS_PRODUCT, JSON.stringify(p)); }
+
+  /* =========================================================
+     PROMPT ENGINE (9 slot Shopee)
+  ========================================================= */
+  const SLOT_DEFS = [
+    { id: 1, title: 'Slot 1: Sampul Utama', icon: 'fa-star', specs: 'Rasio 3:4', desc: 'Foto utama. Latar bersih, tanpa teks, fokus pada produk dan fit model.', kind: 'image',
+      build: (n, s, c) => `Professional e-commerce photography, full body shot of a fashion model wearing ${c} ${n}, minimalist solid white background, no text, no logos, highly detailed, perfect lighting, photorealistic, ${s} --ar 3:4 --v 6.0` },
+    { id: 2, title: 'Slot 2: Detail Tekstur', icon: 'fa-magnifying-glass', specs: 'Rasio 3:4', desc: 'Zoom-in pada material kain untuk menunjukkan kualitas bahan.', kind: 'image',
+      build: (n, s, c) => `Macro photography, extreme close-up shot of premium ${c} fabric texture for ${n}, showing high quality material, sharp focus, soft studio lighting, high resolution, ${s} --ar 3:4 --v 6.0` },
+    { id: 3, title: 'Slot 3: Detail Jahitan', icon: 'fa-scissors', specs: 'Rasio 3:4', desc: 'Menonjolkan kerapian jahitan, kantong, atau area pinggang.', kind: 'image',
+      build: (n, s, c) => `Macro photography, close-up shot focusing on the neat and strong stitching details on the pocket of a ${c} ${n}, premium craftsmanship, depth of field, commercial lighting, ${s} --ar 3:4 --v 6.0` },
+    { id: 4, title: 'Slot 4: Detail Hardware', icon: 'fa-gem', specs: 'Rasio 3:4', desc: 'Fokus pada resleting (zipper), kancing logam, atau rivet.', kind: 'image',
+      build: (n, s, c) => `Close-up product shot, focusing on the premium metallic button and zipper details of a ${c} ${n}, crisp details, minimalist aesthetic background, professional lighting, ${s} --ar 3:4 --v 6.0` },
+    { id: 5, title: 'Slot 5: Sudut Samping', icon: 'fa-user-astronaut', specs: 'Rasio 3:4', desc: 'Memperlihatkan bagaimana produk jatuh/fit dari sisi samping tubuh.', kind: 'image',
+      build: (n, s, c) => `Side profile fashion shot of a model wearing ${c} ${n}, walking casually, showing the side fit, clean minimalist studio background, natural soft lighting, ${s} --ar 3:4 --v 6.0` },
+    { id: 6, title: 'Slot 6: Sudut Belakang', icon: 'fa-people-arrows', specs: 'Rasio 3:4', desc: 'Fokus pada fit bagian belakang dan detail saku belakang.', kind: 'image',
+      build: (n, s, c) => `Back view fashion shot of a model wearing ${c} ${n}, showing the back details and perfect fit, clean minimalist studio background, professional lighting, ${s} --ar 3:4 --v 6.0` },
+    { id: 7, title: 'Slot 7: Foto Lifestyle', icon: 'fa-tree-city', specs: 'Rasio 3:4', desc: 'Variasi warna lain atau foto model di luar ruangan.', kind: 'image',
+      build: (n, s, c) => `Lifestyle fashion photography, model wearing ${c} ${n} outdoors in a modern urban city setting, casual and stylish, natural sunlight, depth of field, ${s} --ar 3:4 --v 6.0` },
+    { id: 8, title: 'Slot 8: Tabel Ukuran', icon: 'fa-ruler', specs: 'Rasio 3:4', desc: 'Template size chart (angka diisi manual di Canva/Photoshop). Model AI gambar umumnya kurang akurat untuk teks/tabel — cek ulang hasilnya.', kind: 'image',
+      build: (n, s, c) => `Minimalist aesthetic size chart template design for ${n}, white background, clean typography, premium branding, empty tables for dimensions, UI/UX graphic design style, ${s} --ar 3:4 --v 6.0` },
+    { id: 9, title: 'Slot 9: Ide Video Produk', icon: 'fa-video', specs: 'Min. 540×540px · 8 detik', desc: 'Prompt untuk AI video (Runway/Pika/Kling) atau arahan syuting — bukan gambar diam.', kind: 'video',
+      build: (n, s, c) => `(VIDEO PROMPT): Cinematic slow-motion panning shot of a model walking confidently wearing ${c} ${n}, demonstrating the stretch, comfort, and premium style of the fabric, bright natural lighting, 4k resolution.` },
+  ];
+
+  function buildPrompts(product) {
+    const name = product.name || 'Produk';
+    const style = product.style || 'Premium';
+    const color = product.color || '';
+    return SLOT_DEFS.map((slot) => ({
+      id: slot.id, title: slot.title, icon: slot.icon, specs: slot.specs, desc: slot.desc, kind: slot.kind,
+      prompt: slot.build(name, style, color),
+    }));
+  }
+
+  /* =========================================================
+     PROVIDER: GENERATE IMAGE
+  ========================================================= */
+  async function generateImage(prompt, settings) {
+    switch (settings.provider) {
+      case 'openai': return generateOpenAI(prompt, settings.openai);
+      case 'stability': return generateStability(prompt, settings.stability);
+      case 'custom': return generateCustom(prompt, settings.custom);
+      case 'pollinations':
+      default: return generatePollinations(prompt, settings.pollinations);
+    }
+  }
+
+  async function generateOpenAI(prompt, cfg) {
+    if (!cfg.apiKey) throw new Error('API key OpenAI belum diisi. Buka menu Pengaturan.');
+    const body = { model: cfg.model || 'gpt-image-1', prompt, n: 1, size: cfg.size || 'auto' };
+    if ((cfg.model || 'gpt-image-1') !== 'dall-e-2' && cfg.quality) body.quality = cfg.quality;
+    const res = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error && data.error.message) || `OpenAI API error (${res.status})`);
+    const item = data && data.data && data.data[0];
+    if (!item) throw new Error('Respons OpenAI tidak berisi gambar.');
+    if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
+    if (item.url) {
+      const imgRes = await fetch(item.url);
+      const blob = await imgRes.blob();
+      return blobToDataURL(blob);
+    }
+    throw new Error('Format respons OpenAI tidak dikenali.');
+  }
+
+  async function generateStability(prompt, cfg) {
+    if (!cfg.apiKey) throw new Error('API key Stability AI belum diisi. Buka menu Pengaturan.');
+    const path = { core: 'core', ultra: 'ultra', sd3: 'sd3' }[cfg.endpoint] || 'core';
+    const form = new FormData();
+    form.append('prompt', prompt);
+    form.append('aspect_ratio', cfg.aspectRatio || '4:5');
+    form.append('output_format', 'png');
+    const res = await fetch(`https://api.stability.ai/v2beta/stable-image/generate/${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.apiKey}`, Accept: 'image/*' },
+      body: form,
+    });
+    if (!res.ok) {
+      let msg = `Stability AI error (${res.status})`;
+      try { const j = await res.json(); msg = (j.errors && j.errors[0]) || j.message || msg; } catch (e) {}
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    return blobToDataURL(blob);
+  }
+
+  async function generatePollinations(prompt, cfg) {
+    const seed = Math.floor(Math.random() * 1e9);
+    const w = (cfg && cfg.width) || 896;
+    const h = (cfg && cfg.height) || 1152;
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${w}&height=${h}&seed=${seed}&nologo=true`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Pollinations error (${res.status})`);
+      const blob = await res.blob();
+      return blobToDataURL(blob);
+    } catch (e) {
+      return url; // fallback: pakai URL langsung kalau fetch/CORS diblokir
+    }
+  }
+
+  async function generateCustom(prompt, cfg) {
+    if (!cfg.url) throw new Error('URL endpoint kustom belum diisi.');
+    const bodyStr = (cfg.bodyTemplate || '{"prompt":"{{prompt}}"}').replaceAll('{{prompt}}', prompt.replace(/"/g, '\\"'));
+    const headers = { 'Content-Type': 'application/json' };
+    if (cfg.apiKey && cfg.authHeader) headers[cfg.authHeader] = `${cfg.authPrefix || ''}${cfg.apiKey}`;
+    const res = await fetch(cfg.url, { method: 'POST', headers, body: bodyStr });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error && data.error.message) || `Endpoint kustom error (${res.status})`);
+    const value = resolvePath(data, cfg.responsePath || 'data.0.url');
+    if (!value) throw new Error('Tidak menemukan gambar pada path respons yang ditentukan.');
+    if (typeof value === 'string' && value.startsWith('http')) {
+      const imgRes = await fetch(value);
+      const blob = await imgRes.blob();
+      return blobToDataURL(blob);
+    }
+    if (typeof value === 'string') return value.startsWith('data:') ? value : `data:image/png;base64,${value}`;
+    throw new Error('Nilai gambar pada respons bukan string.');
+  }
+
+  async function testProviderConnection(settings) {
+    if (settings.provider === 'pollinations') return { ok: true, message: 'Pollinations.ai tidak butuh API key — selalu siap dipakai.' };
+    if (settings.provider === 'openai') {
+      if (!settings.openai.apiKey) return { ok: false, message: 'Isi API key OpenAI dulu.' };
+      const res = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${settings.openai.apiKey}` } });
+      if (res.ok) return { ok: true, message: 'API key OpenAI valid.' };
+      const data = await res.json().catch(() => null);
+      return { ok: false, message: (data && data.error && data.error.message) || `Gagal (${res.status}).` };
+    }
+    if (settings.provider === 'stability') {
+      if (!settings.stability.apiKey) return { ok: false, message: 'Isi API key Stability AI dulu.' };
+      const res = await fetch('https://api.stability.ai/v1/user/account', { headers: { Authorization: `Bearer ${settings.stability.apiKey}` } });
+      if (res.ok) return { ok: true, message: 'API key Stability AI valid.' };
+      return { ok: false, message: `Gagal memverifikasi key (${res.status}).` };
+    }
+    if (settings.provider === 'custom') {
+      if (!settings.custom.url) return { ok: false, message: 'Isi URL endpoint dulu.' };
+      return { ok: true, message: 'Endpoint tersimpan. Uji langsung lewat tombol Generate di Menu 2.' };
+    }
+    return { ok: false, message: 'Provider tidak dikenal.' };
+  }
+
+  /* =========================================================
+     WATERMARK (canvas, aman dari CORS taint karena pakai data URL)
+  ========================================================= */
+  function applyWatermark(dataUrl, logoDataUrl) {
+    if (!logoDataUrl) return Promise.resolve(dataUrl);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const logo = new Image();
+        logo.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const logoW = canvas.width * 0.16;
+            const logoH = logo.naturalHeight * (logoW / logo.naturalWidth);
+            const pad = canvas.width * 0.03;
+            ctx.globalAlpha = 0.9;
+            ctx.drawImage(logo, canvas.width - logoW - pad, canvas.height - logoH - pad, logoW, logoH);
+            ctx.globalAlpha = 1;
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e) { resolve(dataUrl); }
+        };
+        logo.onerror = () => resolve(dataUrl);
+        logo.src = logoDataUrl;
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  /* =========================================================
+     APP STATE
+  ========================================================= */
+  const state = {
+    product: null,
+    photoDataUrl: null,
+    logoDataUrl: null,
+    prompts: [],
+    settings: defaultSettings(),
+    generation: {}, // slotId -> { status: 'idle'|'loading'|'done'|'error', image, error }
+  };
+
+  /* =========================================================
+     NAVIGATION
+  ========================================================= */
+  function switchMenu(name) {
+    document.querySelectorAll('[data-view]').forEach((el) => el.classList.toggle('active', el.dataset.view === name));
+    document.querySelectorAll('.nav-item[data-menu]').forEach((btn) => {
+      const active = btn.dataset.menu === name;
+      btn.classList.toggle('bg-white/10', active);
+      btn.classList.toggle('stitch-active', active);
+      btn.classList.toggle('text-white', active);
+      btn.classList.toggle('text-brand-200', !active && btn.closest('#sidebar') !== null);
+    });
+    if (name === 'generate') refreshGenerateView();
+    closeSidebarMobile();
+    window.scrollTo(0, 0);
+    document.querySelector('main').scrollTo(0, 0);
+  }
+
+  function openSidebarMobile() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarOverlay').classList.remove('hidden');
+  }
+  function closeSidebarMobile() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.add('hidden');
+  }
+
+  /* =========================================================
+     VIEW 1: SETUP PRODUK
+  ========================================================= */
+  function fillSetupForm(product) {
+    document.getElementById('productName').value = product.name || '';
+    document.getElementById('brandStyle').value = product.style || '';
+    document.getElementById('productColor').value = product.color || '';
+  }
+
+  function renderAssetPreview(kind) {
+    const dataUrl = kind === 'photo' ? state.photoDataUrl : state.logoDataUrl;
+    const img = document.getElementById(kind + 'PreviewImg');
+    const icon = document.getElementById(kind + 'PlaceholderIcon');
+    const label = document.getElementById(kind + 'FileLabel');
+    const removeBtn = document.getElementById(kind + 'RemoveBtn');
+    if (dataUrl) {
+      img.src = dataUrl; img.classList.remove('hidden'); icon.classList.add('hidden');
+      label.textContent = kind === 'photo' ? 'Foto produk tersimpan' : 'Logo brand tersimpan';
+      removeBtn.classList.remove('hidden');
+    } else {
+      img.classList.add('hidden'); icon.classList.remove('hidden');
+      label.textContent = kind === 'photo' ? 'Klik atau seret foto ke sini' : 'Klik atau seret logo ke sini';
+      removeBtn.classList.add('hidden');
+    }
+  }
+
+  async function handleAssetFile(kind, file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('File harus berupa gambar.', 'error'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('Ukuran file maksimal 5MB.', 'error'); return; }
+    const dataUrl = await fileToDataURL(file);
+    if (kind === 'photo') state.photoDataUrl = dataUrl; else state.logoDataUrl = dataUrl;
+    await idbSetAsset(kind === 'photo' ? 'photo' : 'logo', dataUrl);
+    renderAssetPreview(kind);
+    showToast(kind === 'photo' ? 'Foto produk tersimpan.' : 'Logo brand tersimpan.');
+  }
+
+  async function removeAsset(kind) {
+    if (kind === 'photo') state.photoDataUrl = null; else state.logoDataUrl = null;
+    await idbDeleteAsset(kind === 'photo' ? 'photo' : 'logo');
+    renderAssetPreview(kind);
+  }
+
+  function renderPromptCards() {
+    const wrap = document.getElementById('promptResults');
+    document.getElementById('setupWelcome').classList.add('hidden');
+    wrap.classList.remove('hidden');
+    wrap.innerHTML = '';
+    state.prompts.forEach((slot) => {
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-xl overflow-hidden flex flex-col border border-gray-100 hover:shadow-md transition-shadow';
+      const badgeColor = slot.kind === 'video' ? 'bg-red-50 text-accent border-red-100' : 'bg-blue-50 text-brand-600 border-blue-100';
+      card.innerHTML = `
+        <div class="p-4 border-b border-gray-100 flex justify-between items-start bg-gray-50/60 gap-3">
+          <div class="min-w-0">
+            <h3 class="font-semibold text-sm flex items-center gap-2 text-brand-900">
+              <i class="fa-solid ${slot.icon} text-brand-500"></i> ${escapeHtml(slot.title)}
+            </h3>
+            <p class="text-xs text-gray-500 mt-1">${escapeHtml(slot.desc)}</p>
+          </div>
+          <span class="text-[11px] font-semibold px-2 py-1 rounded-md border ${badgeColor} whitespace-nowrap flex-shrink-0">${escapeHtml(slot.specs)}</span>
+        </div>
+        <div class="p-4 flex-grow flex flex-col">
+          <div class="prompt-box p-3 rounded-lg text-xs mb-3 flex-grow break-words max-h-32 overflow-y-auto">${escapeHtml(slot.prompt)}</div>
+          <button type="button" class="copy-prompt-btn w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-gray-200 text-sm">
+            <i class="fa-regular fa-copy"></i> Salin Prompt
+          </button>
+        </div>`;
+      card.querySelector('.copy-prompt-btn').addEventListener('click', (e) => copyPromptToClipboard(slot.prompt, e.currentTarget));
+      wrap.appendChild(card);
+    });
+  }
+
+  function copyPromptToClipboard(text, buttonEl) {
+    const done = () => {
+      showToast('Prompt disalin ke clipboard!');
+      if (buttonEl) {
+        const original = buttonEl.innerHTML;
+        buttonEl.innerHTML = '<i class="fa-solid fa-check text-green-600"></i> Tersalin!';
+        setTimeout(() => { buttonEl.innerHTML = original; }, 1800);
+      }
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else fallbackCopy(text, done);
+  }
+  function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { showToast('Gagal menyalin.', 'error'); }
+    ta.remove();
+  }
+
+  async function handleGenerateSetup() {
+    const product = {
+      name: document.getElementById('productName').value.trim() || 'Produk',
+      style: document.getElementById('brandStyle').value.trim() || 'Premium, minimalist, clean',
+      color: document.getElementById('productColor').value.trim() || '',
+    };
+    state.product = product;
+    persistProduct(product);
+    state.prompts = buildPrompts(product);
+    state.generation = {};
+    renderPromptCards();
+    updateNavBadges();
+    showToast('Prompt berhasil dibuat. Lanjut ke Menu 2 untuk generate gambar.');
+  }
+
+  /* =========================================================
+     VIEW 2: GENERATE GAMBAR
+  ========================================================= */
+  function updateProviderStatusUI() {
+    const providerLabels = { pollinations: 'Pollinations.ai (gratis)', openai: 'OpenAI', stability: 'Stability AI', custom: 'Endpoint Kustom' };
+    const label = providerLabels[state.settings.provider] || 'Tidak diketahui';
+    const configured = isProviderConfigured();
+
+    const set = (dotId, textId, ok, okText, badText) => {
+      document.getElementById(dotId).className = 'status-dot ' + (ok ? 'bg-green-400' : 'bg-amber-400');
+      document.getElementById(textId).textContent = ok ? okText : badText;
+    };
+    set('providerStatusDot', 'providerStatusText', configured, `Provider: ${label}`, `Provider: ${label} — perlu API key`);
+    set('genProviderDot', 'genProviderLabel', configured, label, `${label} — perlu API key`);
+    document.getElementById('navSettingsDot').className = 'status-dot ' + (configured ? 'bg-green-400' : 'bg-amber-400');
+  }
+
+  function isProviderConfigured() {
+    const p = state.settings.provider;
+    if (p === 'pollinations') return true;
+    if (p === 'openai') return !!state.settings.openai.apiKey;
+    if (p === 'stability') return !!state.settings.stability.apiKey;
+    if (p === 'custom') return !!state.settings.custom.url;
+    return false;
+  }
+
+  function updateNavBadges() {
+    const badge = document.getElementById('navGenerateBadge');
+    if (state.prompts.length) {
+      const doneCount = Object.values(state.generation).filter((g) => g && g.status === 'done').length;
+      badge.textContent = `${doneCount}/${state.prompts.filter(p => p.kind === 'image').length}`;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  function refreshGenerateView() {
+    updateProviderStatusUI();
+    const hasProduct = state.prompts.length > 0;
+    document.getElementById('generateEmptyState').classList.toggle('hidden', hasProduct);
+    document.getElementById('generateContent').classList.toggle('hidden', !hasProduct);
+    if (hasProduct) renderGenerateSlots();
+  }
+
+  function slotCardTemplate(slot) {
+    const g = state.generation[slot.id] || { status: 'idle' };
+    const isVideo = slot.kind === 'video';
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col';
+    card.dataset.slotId = slot.id;
+
+    const imgAreaHtml = (() => {
+      if (isVideo) {
+        return `<div class="img-tile flex flex-col items-center justify-center text-center p-4 text-gray-400">
+                  <i class="fa-solid fa-clapperboard text-3xl mb-2"></i>
+                  <p class="text-xs">Prompt video — pakai di Runway/Pika/Kling, atau sebagai arahan syuting.</p>
+                </div>`;
+      }
+      if (g.status === 'loading') {
+        return `<div class="img-tile flex items-center justify-center"><div class="spinner-dark"></div></div>`;
+      }
+      if (g.status === 'done' && g.image) {
+        return `<div class="img-tile relative group">
+                  <img src="${g.image}" class="w-full h-full object-cover slot-image-preview" alt="${escapeHtml(slot.title)}">
+                  <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                    <button class="view-image-btn w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-brand-900"><i class="fa-solid fa-expand"></i></button>
+                    <button class="download-image-btn w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-brand-900"><i class="fa-solid fa-download"></i></button>
+                    <button class="regenerate-image-btn w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-brand-900"><i class="fa-solid fa-rotate"></i></button>
+                  </div>
+                </div>`;
+      }
+      if (g.status === 'error') {
+        return `<div class="img-tile flex flex-col items-center justify-center text-center p-4">
+                  <i class="fa-solid fa-triangle-exclamation text-red-400 text-2xl mb-2"></i>
+                  <p class="text-xs text-red-500">${escapeHtml(g.error || 'Gagal membuat gambar.')}</p>
+                </div>`;
+      }
+      return `<div class="img-tile flex flex-col items-center justify-center text-gray-300">
+                <i class="fa-solid fa-image text-3xl mb-1"></i>
+                <p class="text-xs text-gray-400">Belum dibuat</p>
+              </div>`;
+    })();
+
+    const actionHtml = isVideo
+      ? `<button type="button" class="copy-prompt-btn w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg text-sm flex items-center justify-center gap-2"><i class="fa-regular fa-copy"></i> Salin Prompt Video</button>`
+      : (g.status === 'done'
+          ? `<button type="button" class="regenerate-btn w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg text-sm flex items-center justify-center gap-2"><i class="fa-solid fa-rotate"></i> Buat Ulang</button>`
+          : `<button type="button" class="generate-btn w-full py-2 bg-brand-900 hover:bg-brand-600 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-2" ${g.status === 'loading' ? 'disabled' : ''}>
+               <i class="fa-solid fa-wand-magic-sparkles"></i> ${g.status === 'loading' ? 'Membuat...' : 'Generate Gambar'}
+             </button>`);
+
+    card.innerHTML = `
+      <div class="p-3 border-b border-gray-100 flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <h3 class="font-semibold text-sm text-brand-900 flex items-center gap-2"><i class="fa-solid ${slot.icon} text-brand-500 text-xs"></i> ${escapeHtml(slot.title)}</h3>
+          <p class="text-[11px] text-gray-400 mt-0.5">${escapeHtml(slot.specs)}</p>
+        </div>
+      </div>
+      <div class="img-area">${imgAreaHtml}</div>
+      <div class="p-3 space-y-2">
+        <details class="text-xs text-gray-500">
+          <summary class="cursor-pointer select-none text-gray-400">Lihat prompt</summary>
+          <p class="mt-1 font-mono text-[11px] bg-gray-50 rounded-lg p-2 border border-gray-100 break-words">${escapeHtml(slot.prompt)}</p>
+        </details>
+        <div class="action-slot">${actionHtml}</div>
+      </div>`;
+
+    // wire events
+    const copyBtn = card.querySelector('.copy-prompt-btn');
+    if (copyBtn) copyBtn.addEventListener('click', (e) => copyPromptToClipboard(slot.prompt, e.currentTarget));
+
+    const genBtn = card.querySelector('.generate-btn');
+    if (genBtn) genBtn.addEventListener('click', () => runGenerateSlot(slot));
+
+    const regenBtn = card.querySelector('.regenerate-btn') || card.querySelector('.regenerate-image-btn');
+    if (regenBtn) regenBtn.addEventListener('click', () => runGenerateSlot(slot));
+
+    const viewBtn = card.querySelector('.view-image-btn');
+    if (viewBtn) viewBtn.addEventListener('click', () => openLightbox(g.image));
+
+    const dlBtn = card.querySelector('.download-image-btn');
+    if (dlBtn) dlBtn.addEventListener('click', () => downloadDataUrl(g.image, `${slugify(state.product.name)}-slot${slot.id}.png`));
+
+    return card;
+  }
+
+  function renderGenerateSlots() {
+    const wrap = document.getElementById('generateSlots');
+    wrap.innerHTML = '';
+    state.prompts.forEach((slot) => wrap.appendChild(slotCardTemplate(slot)));
+    updateNavBadges();
+  }
+
+  function updateSingleSlotCard(slot) {
+    const wrap = document.getElementById('generateSlots');
+    const old = wrap.querySelector(`[data-slot-id="${slot.id}"]`);
+    const fresh = slotCardTemplate(slot);
+    if (old) old.replaceWith(fresh); else wrap.appendChild(fresh);
+    updateNavBadges();
+  }
+
+  async function runGenerateSlot(slot) {
+    if (!isProviderConfigured()) {
+      showToast('Provider belum siap. Buka Pengaturan untuk mengisi API key.', 'error');
+      switchMenu('settings');
+      return;
+    }
+    state.generation[slot.id] = { status: 'loading' };
+    updateSingleSlotCard(slot);
+    try {
+      let image = await generateImage(slot.prompt, state.settings);
+      if (state.settings.watermark && state.logoDataUrl) image = await applyWatermark(image, state.logoDataUrl);
+      state.generation[slot.id] = { status: 'done', image };
+      const historyId = await idbAddHistory({
+        createdAt: Date.now(), image, prompt: slot.prompt, slotTitle: slot.title,
+        productName: state.product ? state.product.name : '', provider: state.settings.provider,
+      });
+      state.generation[slot.id].historyId = historyId;
+      await saveLastResult(state.product, slot.id, image);
+      updateSingleSlotCard(slot);
+    } catch (err) {
+      state.generation[slot.id] = { status: 'error', error: err.message || 'Gagal membuat gambar.' };
+      updateSingleSlotCard(slot);
+      showToast(err.message || 'Gagal membuat gambar.', 'error');
+    }
+  }
+
+  async function runGenerateAll() {
+    if (!isProviderConfigured()) {
+      showToast('Provider belum siap. Buka Pengaturan untuk mengisi API key.', 'error');
+      switchMenu('settings');
+      return;
+    }
+    const imageSlots = state.prompts.filter((s) => s.kind === 'image');
+    const progress = document.getElementById('generateProgress');
+    const progressText = document.getElementById('generateProgressText');
+    progress.classList.remove('hidden');
+    let success = 0, fail = 0;
+    for (let i = 0; i < imageSlots.length; i++) {
+      const slot = imageSlots[i];
+      progressText.textContent = `Membuat gambar ${i + 1} dari ${imageSlots.length}: ${slot.title}...`;
+      try {
+        await runGenerateSlot(slot);
+        if (state.generation[slot.id] && state.generation[slot.id].status === 'done') success++; else fail++;
+      } catch (e) { fail++; }
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    progress.classList.add('hidden');
+    showToast(`Selesai: ${success} berhasil${fail ? `, ${fail} gagal` : ''}.`, fail ? 'error' : 'success');
+  }
+
+  function switchGenerateSubtab(tab) {
+    const resultsBtn = document.getElementById('subtabResults');
+    const historyBtn = document.getElementById('subtabHistory');
+    const resultsPanel = document.getElementById('resultsPanel');
+    const historyPanel = document.getElementById('historyPanel');
+    const activeCls = ['bg-brand-900', 'text-white'];
+    const inactiveCls = ['text-gray-600'];
+    if (tab === 'results') {
+      resultsBtn.classList.add(...activeCls); resultsBtn.classList.remove(...inactiveCls);
+      historyBtn.classList.remove(...activeCls); historyBtn.classList.add(...inactiveCls);
+      resultsPanel.classList.remove('hidden'); historyPanel.classList.add('hidden');
+    } else {
+      historyBtn.classList.add(...activeCls); historyBtn.classList.remove(...inactiveCls);
+      resultsBtn.classList.remove(...activeCls); resultsBtn.classList.add(...inactiveCls);
+      historyPanel.classList.remove('hidden'); resultsPanel.classList.add('hidden');
+      renderHistory();
+    }
+  }
+
+  async function renderHistory() {
+    const grid = document.getElementById('historyGrid');
+    const empty = document.getElementById('historyEmpty');
+    const items = await idbGetAllHistory();
+    if (!items.length) { grid.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    grid.innerHTML = '';
+    items.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-xl border border-gray-100 overflow-hidden group';
+      card.innerHTML = `
+        <div class="img-tile relative">
+          <img src="${item.image}" class="w-full h-full object-cover" alt="${escapeHtml(item.slotTitle || '')}">
+          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+            <button class="hist-view-btn w-8 h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-brand-900 text-sm"><i class="fa-solid fa-expand"></i></button>
+            <button class="hist-download-btn w-8 h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-brand-900 text-sm"><i class="fa-solid fa-download"></i></button>
+            <button class="hist-delete-btn w-8 h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-accent text-sm"><i class="fa-regular fa-trash-can"></i></button>
+          </div>
+        </div>
+        <div class="p-2">
+          <p class="text-[11px] font-medium text-gray-700 truncate">${escapeHtml(item.slotTitle || 'Gambar')}</p>
+          <p class="text-[10px] text-gray-400">${escapeHtml(formatDate(item.createdAt))}</p>
+        </div>`;
+      card.querySelector('.hist-view-btn').addEventListener('click', () => openLightbox(item.image));
+      card.querySelector('.hist-download-btn').addEventListener('click', () => downloadDataUrl(item.image, `riwayat-${item.id}.png`));
+      card.querySelector('.hist-delete-btn').addEventListener('click', async () => {
+        await idbDeleteHistory(item.id);
+        renderHistory();
+        showToast('Riwayat dihapus.');
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  /* =========================================================
+     VIEW 3: PENGATURAN
+  ========================================================= */
+  function renderSettingsForm() {
+    const s = state.settings;
+    document.getElementById('providerSelect').value = s.provider;
+    document.getElementById('watermarkToggle').checked = !!s.watermark;
+
+    document.getElementById('openaiKey').value = s.openai.apiKey || '';
+    document.getElementById('openaiModel').value = s.openai.model || 'gpt-image-1';
+    document.getElementById('openaiSize').value = s.openai.size || '1024x1536';
+    document.getElementById('openaiQuality').value = s.openai.quality || 'auto';
+
+    document.getElementById('stabilityKey').value = s.stability.apiKey || '';
+    document.getElementById('stabilityEndpoint').value = s.stability.endpoint || 'core';
+    document.getElementById('stabilityAspect').value = s.stability.aspectRatio || '4:5';
+
+    document.getElementById('pollinationsWidth').value = s.pollinations.width || 896;
+    document.getElementById('pollinationsHeight').value = s.pollinations.height || 1152;
+
+    document.getElementById('customUrl').value = s.custom.url || '';
+    document.getElementById('customAuthHeader').value = s.custom.authHeader || 'Authorization';
+    document.getElementById('customAuthPrefix').value = s.custom.authPrefix || 'Bearer ';
+    document.getElementById('customKey').value = s.custom.apiKey || '';
+    document.getElementById('customBody').value = s.custom.bodyTemplate || '{"prompt": "{{prompt}}"}';
+    document.getElementById('customResponsePath').value = s.custom.responsePath || 'data.0.url';
+
+    toggleProviderFields(s.provider);
+  }
+
+  function toggleProviderFields(provider) {
+    ['openai', 'stability', 'pollinations', 'custom'].forEach((p) => {
+      document.getElementById('fields' + p.charAt(0).toUpperCase() + p.slice(1)).classList.toggle('hidden', p !== provider);
+    });
+  }
+
+  function readSettingsFromForm() {
+    return {
+      provider: document.getElementById('providerSelect').value,
+      watermark: document.getElementById('watermarkToggle').checked,
+      openai: {
+        apiKey: document.getElementById('openaiKey').value.trim(),
+        model: document.getElementById('openaiModel').value.trim() || 'gpt-image-1',
+        size: document.getElementById('openaiSize').value,
+        quality: document.getElementById('openaiQuality').value,
+      },
+      stability: {
+        apiKey: document.getElementById('stabilityKey').value.trim(),
+        endpoint: document.getElementById('stabilityEndpoint').value,
+        aspectRatio: document.getElementById('stabilityAspect').value,
+      },
+      pollinations: {
+        width: parseInt(document.getElementById('pollinationsWidth').value, 10) || 896,
+        height: parseInt(document.getElementById('pollinationsHeight').value, 10) || 1152,
+      },
+      custom: {
+        url: document.getElementById('customUrl').value.trim(),
+        authHeader: document.getElementById('customAuthHeader').value.trim() || 'Authorization',
+        authPrefix: document.getElementById('customAuthPrefix').value,
+        apiKey: document.getElementById('customKey').value.trim(),
+        bodyTemplate: document.getElementById('customBody').value,
+        responsePath: document.getElementById('customResponsePath').value.trim() || 'data.0.url',
+      },
+    };
+  }
+
+  function handleSaveSettings() {
+    state.settings = readSettingsFromForm();
+    persistSettings(state.settings);
+    updateProviderStatusUI();
+    showToast('Pengaturan tersimpan.');
+  }
+
+  async function handleTestConnection() {
+    const btn = document.getElementById('testConnectionBtn');
+    const resultEl = document.getElementById('testConnectionResult');
+    const settings = readSettingsFromForm();
+    btn.disabled = true;
+    resultEl.textContent = 'Menguji koneksi...';
+    resultEl.className = 'text-sm self-center text-gray-500';
+    try {
+      const result = await testProviderConnection(settings);
+      resultEl.textContent = result.message;
+      resultEl.className = 'text-sm self-center ' + (result.ok ? 'text-green-600' : 'text-accent');
+    } catch (err) {
+      resultEl.textContent = err.message || 'Gagal menguji koneksi.';
+      resultEl.className = 'text-sm self-center text-accent';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function handleResetAll() {
+    if (!confirm('Hapus semua data lokal (produk, foto, logo, pengaturan, riwayat)? Tindakan ini tidak bisa dibatalkan.')) return;
+    localStorage.removeItem(LS_SETTINGS);
+    localStorage.removeItem(LS_PRODUCT);
+    await idbClearAssets();
+    await idbClearHistory();
+    location.reload();
+  }
+
+  /* =========================================================
+     WIRING
+  ========================================================= */
+  function wireNav() {
+    document.querySelectorAll('.nav-item[data-menu]').forEach((btn) => {
+      btn.addEventListener('click', () => switchMenu(btn.dataset.menu));
+    });
+    document.getElementById('hamburgerBtn').addEventListener('click', openSidebarMobile);
+    document.getElementById('sidebarOverlay').addEventListener('click', closeSidebarMobile);
+    document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') closeLightbox(); });
+  }
+
+  function wireSetupForm() {
+    document.getElementById('generateSetupBtn').addEventListener('click', handleGenerateSetup);
+
+    const wireDropzone = (kind) => {
+      const zone = document.getElementById(kind + 'Dropzone');
+      const input = document.getElementById(kind + 'Input');
+      zone.addEventListener('click', () => input.click());
+      input.addEventListener('change', (e) => handleAssetFile(kind, e.target.files[0]));
+      ['dragenter', 'dragover'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('drag'); }));
+      ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('drag'); }));
+      zone.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) handleAssetFile(kind, e.dataTransfer.files[0]); });
+      document.getElementById(kind + 'RemoveBtn').addEventListener('click', (e) => { e.stopPropagation(); removeAsset(kind); });
+    };
+    wireDropzone('photo');
+    wireDropzone('logo');
+  }
+
+  function wireGenerateView() {
+    document.getElementById('generateAllBtn').addEventListener('click', runGenerateAll);
+    document.getElementById('subtabResults').addEventListener('click', () => switchGenerateSubtab('results'));
+    document.getElementById('subtabHistory').addEventListener('click', () => switchGenerateSubtab('history'));
+    document.getElementById('watermarkToggle').addEventListener('change', (e) => {
+      state.settings.watermark = e.target.checked;
+      persistSettings(state.settings);
+    });
+    document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
+      if (!confirm('Hapus semua riwayat gambar?')) return;
+      await idbClearHistory();
+      renderHistory();
+      showToast('Riwayat dikosongkan.');
+    });
+  }
+
+  function wireSettingsForm() {
+    document.getElementById('providerSelect').addEventListener('change', (e) => toggleProviderFields(e.target.value));
+    document.getElementById('saveSettingsBtn').addEventListener('click', handleSaveSettings);
+    document.getElementById('testConnectionBtn').addEventListener('click', handleTestConnection);
+    document.getElementById('resetAllBtn').addEventListener('click', handleResetAll);
+    document.querySelectorAll('.toggle-visibility').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') { input.type = 'text'; icon.className = 'fa-regular fa-eye-slash'; }
+        else { input.type = 'password'; icon.className = 'fa-regular fa-eye'; }
+      });
+    });
+  }
+
+  /* =========================================================
+     INIT
+  ========================================================= */
+  async function init() {
+    state.settings = loadSettings();
+    document.getElementById('watermarkToggle').checked = !!state.settings.watermark;
+
+    const product = loadProduct();
+    state.photoDataUrl = await idbGetAsset('photo').catch(() => null);
+    state.logoDataUrl = await idbGetAsset('logo').catch(() => null);
+    renderAssetPreview('photo');
+    renderAssetPreview('logo');
+
+    if (product) {
+      state.product = product;
+      fillSetupForm(product);
+      state.prompts = buildPrompts(product);
+      renderPromptCards();
+      const lastResults = await loadLastResultsForProduct(product).catch(() => ({}));
+      Object.keys(lastResults).forEach((slotId) => {
+        state.generation[slotId] = { status: 'done', image: lastResults[slotId] };
+      });
+    }
+
+    renderSettingsForm();
+    updateProviderStatusUI();
+    updateNavBadges();
+
+    wireNav();
+    wireSetupForm();
+    wireGenerateView();
+    wireSettingsForm();
+
+    switchMenu('setup');
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
